@@ -1,0 +1,24 @@
+{
+  "displayName": "Capstone VM CPU Alert",
+  "combiner": "OR",
+  "notificationChannels": [
+    "projects/emerald-state-491204-b8/notificationChannels/15960379408627417579"
+  ],
+  "conditions": [
+    {
+      "displayName": "High CPU Usage",
+      "conditionThreshold": {
+        "filter": "metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND resource.type=\"gce_instance\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.7,
+        "duration": "60s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ]
+      }
+    }
+  ]
+}
