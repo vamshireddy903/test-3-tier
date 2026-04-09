@@ -1,5 +1,8 @@
 const { getPool } = require('../config/sqlDb');
-const { publishToTopic } = require('../config/pubsub');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+
+// AWS SQS client
+const sqs = new SQSClient({ region: process.env.AWS_REGION || 'ap-southeast-1' });
 
 // Generate a readable order number like VF20241203001
 const generateOrderNumber = () => {
@@ -59,22 +62,27 @@ const placeOrder = async (req, res) => {
     const savedOrder = result.recordset[0];
     console.log(`🛒 Order saved: #${orderNumber} — ₹${totalAmount} — ${userEmail}`);
 
-    // ── Publish ORDER_PLACED event to Pub/Sub ────────────────────────────────
-    await publishToTopic({
-      eventType:       'ORDER_PLACED',
-      orderId:         savedOrder.id,
-      orderNumber,
-      userId,
-      userEmail,
-      userName,
-      items,
-      subtotal,
-      deliveryFee,
-      totalAmount,
-      paymentMethod:   paymentMethod || 'upi',
-      deliveryAddress,
-      timestamp:       new Date().toISOString(),
-    });
+    // ── Publish ORDER_PLACED event to SQS ────────────────────────────────────
+    await sqs.send(new SendMessageCommand({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        eventType:       'ORDER_PLACED',
+        orderId:         savedOrder.id,
+        orderNumber,
+        userId,
+        userEmail,
+        userName,
+        items,
+        subtotal,
+        deliveryFee,
+        total:           totalAmount,
+        paymentMethod:   paymentMethod || 'upi',
+        deliveryAddress,
+        date:            new Date().toISOString(),
+      }),
+    }));
+
+    console.log(`📨 Order event published to SQS: #${orderNumber}`);
 
     return res.status(201).json({
       success: true,
